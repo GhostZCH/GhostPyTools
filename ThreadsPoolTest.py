@@ -1,13 +1,21 @@
-import  ThreadPool
+import ThreadPool
+
+class TestWork(ThreadPool.IWork):
+    def __init__(self, n):
+        self._n = n
+        self._result = 1
+
+    def run(self):
+        # compute n!
+        for number in xrange(self._n):
+            self._result *= number
+
+    def get_result(self):
+        return self._result
 
 
 if __name__ == '__main__':
-    p = TPool(4)
+    pool = ThreadPool.ThreadPool()
 
-    for i in range(10):
-        p.add_work(Work(str(i)))
-
-    time.sleep(2)
-
-    for i in range(10):
-        p.add_work(Work(str(i)))
+    for i in xrange(1024):
+        pool.add_work(TestWork(100))

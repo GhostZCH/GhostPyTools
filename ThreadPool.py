@@ -1,8 +1,6 @@
 import threading
 import Queue
 
-
-
 class IWork:
     def __init__(self):
         pass
@@ -10,10 +8,15 @@ class IWork:
     def run(self):
         pass
 
-class Worker(threading.Thread):
-    def __init__(self, get_work):
+    def get_result(self):
+        pass
+
+
+class ThreadWorker(threading.Thread):
+    def __init__(self, get_work, worker_id):
         threading.Thread.__init__(self)
         self._get_work = get_work
+        self._id = worker_id
 
     def run(self):
         work = self._get_work()
@@ -22,13 +25,14 @@ class Worker(threading.Thread):
             work = self._get_work()
 
 
-class TPool:
-    def __init__(self, num):
+class ThreadPool:
+    def __init__(self, max_size=4):
         self._pool = []
         self._que = Queue.Queue(maxsize=1024)
         self._lock = threading.Lock()
-        for i in range(num):
-            worker = Worker(self._get_work)
+
+        for i in xrange(max_size):
+            worker = ThreadWorker(self._get_work)
             self._pool.append(worker)
             worker.start()
 
@@ -38,7 +42,3 @@ class TPool:
 
     def add_work(self, work):
         self._que.put(work)
-
-if __name__ == '__main__':
-
-
