@@ -11,5 +11,5 @@ if __name__ == '__main__':
     lock = threading.Lock()
     with lock:
         with lock:
-            print("can print")
+            print("can not print")
 
