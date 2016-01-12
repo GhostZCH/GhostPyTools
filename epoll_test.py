@@ -122,7 +122,7 @@ def main():
     try:
         loop(svr, epoll)
     except:
-        traceback.pr
+        traceback.print_exc()
         epoll.close()
         svr.close()
 
