@@ -5,7 +5,7 @@ import errno
 import select
 import traceback
 
-_TEST_DATA = "HTTP/1.0 200 OK\r\nContent-type :text/plain\r\nContent-length: 1\r\nConnection: Keep-Alive\r\n\r\n" + '0' * 1
+_TEST_DATA = "HTTP/1.0 200 OK\r\nContent-type :text/plain\r\nContent-length: 1024\r\nConnection: Keep-Alive\r\n\r\n" + '0' * 1024
 
 # _TEST_DATA = "HTTP/1.0 200 OK\r\nContent-type :text/plain\r\nContent-length: 1024\r\n\r\n" \ + '0' * 1024
 
@@ -18,7 +18,7 @@ def get_svr(port=8000):
     return svr
 
 
-def get_epoll(svr, max_fd=10240):
+def get_epoll(svr, max_fd=1024):
     epoll = select.epoll(max_fd)
     epoll.register(svr.fileno(), select.EPOLLIN)
     return epoll
