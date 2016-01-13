@@ -28,27 +28,23 @@ def accept(svr, epoll):
     conn, _ = svr.accept()
     conn.setblocking(False)
     epoll.register(conn.fileno(), select.EPOLLIN | select.EPOLLET | select.EPOLLHUP)
-    # conn.settimeout(0.1)
     return conn
 
 
 def handle_event_recv(client):
     try:
         while True:
-            print 'recv'
             buf = client[0].recv(1024)
-            print buf
 
             if not buf:
                 # 连接关闭, 接收结束
-                return True, False
+                return False, False
 
             client[1] += buf
 
     except socket.error, ex:
         if ex.errno == errno.EAGAIN:
             # 缓冲区没有数据了,可能是发送完毕了但是没有关闭sock,也可能是网速慢暂时没有传过来,需要业务层来判断
-            print 'RECV AGAIN'
             if '\r\n\r\n' in client[1]:
                 client[3] = 'keep-alive' in client[1].lower()
                 # 需要的数据接收完成,认为结束
@@ -69,10 +65,11 @@ def handle_event_send(client):
                 return False, False
 
             client[2] += send_len
+            if client[2] >= len(_TEST_DATA):
+                # 发送完成
+                return True, False
     except socket.error, ex:
         if ex.errno == errno.EAGAIN:
-            if client[2] >= len(_TEST_DATA):
-                return True, False
             return True, True
         else:
             raise ex
@@ -102,7 +99,7 @@ def loop(svr, epoll):
                     epoll.unregister(fd)
                     del client_list[fd]
 
-                if not again:
+                elif not again:
                     # 读取完毕准备发送
                     client_list[fd][2] = 0
                     epoll.modify(fd, select.EPOLLOUT | select.EPOLLET | select.EPOLLHUP)
@@ -111,12 +108,11 @@ def loop(svr, epoll):
             if event & select.EPOLLOUT:
                 ok, again = handle_event_send(client_list[fd])
 
-                if ok:
+                if not ok:
                     client_list[fd][0].close()
                     epoll.unregister(fd)
                     del client_list[fd]
-
-                if not again:
+                elif not again:
                     # 发送完成
                     if client_list[fd][3]:
                         # 判断是否keep-alive, 如果是准备接收数据开始下个对话,如果不是关闭连接
