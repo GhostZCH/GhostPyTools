@@ -41,14 +41,19 @@ def handle_event_recv(client):
                 return False, False
 
             client[1] += buf
-
-    except socket.error, ex:
-        if ex.errno == errno.EAGAIN:
-            # 缓冲区没有数据了,可能是发送完毕了但是没有关闭sock,也可能是网速慢暂时没有传过来,需要业务层来判断
             if '\r\n\r\n' in client[1]:
                 client[3] = 'keep-alive' in client[1].lower()
                 # 需要的数据接收完成,认为结束
                 return True, False
+
+    except socket.error, ex:
+        if ex.errno == errno.EAGAIN:
+            # 上面提前判断了,这里可以省掉,
+            # # 缓冲区没有数据了,可能是发送完毕了但是没有关闭sock,也可能是网速慢暂时没有传过来,需要业务层来判断
+            # if '\r\n\r\n' in client[1]:
+            #     client[3] = 'keep-alive' in client[1].lower()
+            #     # 需要的数据接收完成,认为结束
+            #     return True, False
             # 没收完, 下次有数据再来收
             return True, True
 
