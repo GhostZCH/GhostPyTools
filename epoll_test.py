@@ -1,9 +1,11 @@
+# coding=utf-8
+
 import socket
 import errno
 import select
 import traceback
 
-_TEST_DATA = "HTTP/1.0 200 OK\r\nContent-type :text/plain\r\nContent-length: 1024\r\nConnection: Keep-Alive\r\n\r\n" + '0' * 1024
+_TEST_DATA = "HTTP/1.0 200 OK\r\nContent-type :text/plain\r\nContent-length: 1\r\nConnection: Keep-Alive\r\n\r\n" + '0' * 1
 
 # _TEST_DATA = "HTTP/1.0 200 OK\r\nContent-type :text/plain\r\nContent-length: 1024\r\n\r\n" \ + '0' * 1024
 
@@ -24,32 +26,38 @@ def get_epoll(svr, max_fd=10240):
 
 def accept(svr, epoll):
     conn, _ = svr.accept()
-    epoll.register(conn.fileno(), select.EPOLLIN | select.EPOLLET | select.EPOLLHUP)
     conn.setblocking(False)
-    conn.settimeout(0.1)
+    epoll.register(conn.fileno(), select.EPOLLIN | select.EPOLLET | select.EPOLLHUP)
+    # conn.settimeout(0.1)
     return conn
 
 
 def handle_event_recv(client):
     try:
         while True:
+            print 'recv'
             buf = client[0].recv(1024)
-            if not buf and not client[1]:
-                print 'not buf', client[0].fileno(), client[1]
-                return True, True
+            print buf
+
+            if not buf:
+                # 连接关闭, 接收结束
+                return True, False
 
             client[1] += buf
-            if '\r\n\r\n' in client[1]:
-                client[3] = 'keep-alive' in client[1].lower()
-                return True, False
 
     except socket.error, ex:
         if ex.errno == errno.EAGAIN:
-            print 'AGAIN'
+            # 缓冲区没有数据了,可能是发送完毕了但是没有关闭sock,也可能是网速慢暂时没有传过来,需要业务层来判断
+            print 'RECV AGAIN'
+            if '\r\n\r\n' in client[1]:
+                client[3] = 'keep-alive' in client[1].lower()
+                # 需要的数据接收完成,认为结束
+                return True, False
+            # 没收完, 下次有数据再来收
             return True, True
+
         else:
-            traceback.print_exc()
-            return False, False
+            raise ex
 
 
 def handle_event_send(client):
@@ -57,20 +65,17 @@ def handle_event_send(client):
         while True:
             send_len = client[0].send(_TEST_DATA[client[2]:])
             if not send_len:
-                print 'not send_len'
+                # 发送失败
                 return False, False
 
             client[2] += send_len
-            if client[2] >= len(_TEST_DATA):
-                return True, False
-
     except socket.error, ex:
         if ex.errno == errno.EAGAIN:
-            print 'AGAIN'
+            if client[2] >= len(_TEST_DATA):
+                return True, False
             return True, True
         else:
-            traceback.print_exc()
-            return False, False
+            raise ex
 
 
 def loop(svr, epoll):
@@ -89,23 +94,32 @@ def loop(svr, epoll):
                 continue
 
             if event & select.EPOLLIN:
-                ok, goon = handle_event_recv(client_list[fd])
+                ok, again = handle_event_recv(client_list[fd])
+
                 if not ok:
-                    return
-                if not goon:
+                    # 有错误关闭
+                    client_list[fd][0].close()
+                    epoll.unregister(fd)
+                    del client_list[fd]
+
+                if not again:
+                    # 读取完毕准备发送
                     client_list[fd][2] = 0
                     epoll.modify(fd, select.EPOLLOUT | select.EPOLLET | select.EPOLLHUP)
                 continue
 
             if event & select.EPOLLOUT:
-                ok, goon = handle_event_send(client_list[fd])
-                if not ok:
-                    return
-                if not goon:
-                    # client_list[fd][0].close()
-                    # epoll.unregister(fd)
-                    # del client_list[fd]
+                ok, again = handle_event_send(client_list[fd])
+
+                if ok:
+                    client_list[fd][0].close()
+                    epoll.unregister(fd)
+                    del client_list[fd]
+
+                if not again:
+                    # 发送完成
                     if client_list[fd][3]:
+                        # 判断是否keep-alive, 如果是准备接收数据开始下个对话,如果不是关闭连接
                         client_list[fd][1] = ''
                         epoll.modify(fd, select.EPOLLIN | select.EPOLLET | select.EPOLLHUP)
                     else:
