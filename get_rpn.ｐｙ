@@ -1,0 +1,38 @@
+def get_rpn(express):
+    ops = {
+        '(': 0,
+        ')': 0,
+        '*': 2,
+        '/': 2,
+        '+': 1,
+        '-': 1,
+    }
+
+    parts = express.split()
+    op = []
+    re = []
+    for p in parts:
+        if p not in ops:
+            re.append(p)
+        else:
+            if p == '(':
+                op.append(p)
+            elif p == ')':
+                while op and op[-1] != '(':
+                    re.append(op.pop())
+                if op[-1] == '(':
+                    op.pop()
+            else:
+                while op and ops[p] < ops[op[-1]]:
+                    re.append(op.pop())
+                op.append(p)
+
+    while op:
+        re.append(op.pop())
+
+    return ' '.join(re)
+
+
+if __name__ == '__main__':
+    print get_rpn('1 + ( 2 + 3 * 5 - 4 ) * 4 - 2')
+    '1 2 3 5 * 4 - + 4 * 2 - +'
