@@ -3,8 +3,8 @@ import operator
 
 def get_rpn(express):
     ops = {
-        '(': 0,
-        ')': 0,
+        '(': 3,
+        ')': 3,
         '*': 2,
         '/': 2,
         '+': 1,
@@ -18,15 +18,12 @@ def get_rpn(express):
         if p not in ops:
             re.append(int(p))
         else:
-            if p == '(':
-                op.append(p)
-            elif p == ')':
-                while op and op[-1] != '(':
+            if p == ')':
+                while op[-1] != '(':
                     re.append(op.pop())
-                if op[-1] == '(':
-                    op.pop()
+                op.pop()
             else:
-                while op and ops[p] < ops[op[-1]]:
+                while op and op[-1] != '(' and ops[op[-1]] >= ops[p]:
                     re.append(op.pop())
                 op.append(p)
 
@@ -43,17 +40,17 @@ def compute_rpn(rpn):
         '*': operator.mul,
         '/': operator.div
     }
-    left = rpn
-    right = []
 
-    while len(left) > 1:
-        right.append(left.pop())
-        while left and right and left[-1] not in ops and right[-1] not in ops:
-            a = left.pop()
-            b = right.pop()
-            left.append(ops[right.pop()](a, b))
+    result = []
+    for i in rpn:
+        if i not in ops:
+            result.append(i)
+        else:
+            b = result.pop()
+            a = result.pop()
+            result.append(ops[i](a, b))
 
-    return left[0]
+    return result[0]
 
 if __name__ == '__main__':
     expression = get_rpn('1 + ( 2 + 3 * 5 - 4 ) * 4 - 2 / 2')
